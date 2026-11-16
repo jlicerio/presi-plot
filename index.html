@@ -91,6 +91,34 @@
   .plot { border: 1px solid var(--line); padding: 8px; background: #090909; display: flex; flex-direction: column; }
   #plan { flex: none; height: auto; }
   #plan svg { display: block; width: 100%; height: auto; }
+  #plan .planbg { fill: #0a0f15; }
+  #plan .shell { fill: none; stroke: #cfcfcf; stroke-width: 1.4; }
+  #plan .gridline { stroke: #18202a; }
+  #plan .trussline, #plan .dimline { stroke: #6f7f8f; }
+  #plan .dimtext { fill: #7b8b9b; }
+  #plan .label { fill: #dfe6ee; font-size: 10px; }
+  #plan .addr { fill: #9aa7b4; font-size: 8.5px; }
+
+  /* symbol palette: bright on the dark screen, deep on paper */
+  .sym.g-moving-heads { color: #7fa8d9; }
+  .sym.g-rgbw-pars { color: #d9c07f; }
+  .sym.g-stage-panels { color: #b98fd9; }
+  .sym.g-dj-world-beams { color: #7fd9b0; }
+  .sym.g-aura { color: #d98fa0; }
+  .sym.g-laser { color: #d98f8f; }
+  body.bw .sym.g-moving-heads { color: #1f5fbf; }
+  body.bw .sym.g-rgbw-pars { color: #b8730a; }
+  body.bw .sym.g-stage-panels { color: #6b3fb0; }
+  body.bw .sym.g-dj-world-beams { color: #0f7a55; }
+  body.bw .sym.g-aura { color: #b02a5c; }
+  body.bw .sym.g-laser { color: #b32020; }
+  body.bw #plan .planbg { fill: #ffffff; }
+  body.bw #plan .shell { stroke: #111111; }
+  body.bw #plan .gridline { stroke: #e2e2e2; }
+  body.bw #plan .trussline, body.bw #plan .dimline { stroke: #555555; }
+  body.bw #plan .dimtext { fill: #555555; }
+  body.bw #plan .label { fill: #111111; }
+  body.bw #plan .addr { fill: #555555; }
   #plan text { font-family: var(--mono); }
   .rail { display: flex; flex-direction: column; gap: 10px; }
   .box { border: 1px solid var(--line); padding: 8px; background: var(--panel); }
@@ -184,6 +212,21 @@
     td { border-bottom: 1px dotted #999 !important; }
     th { border-bottom: 1px solid #000 !important; }
     .geo, .status, .toolbar, .brandclear, .hideprint { display: none !important; }
+
+    /* the printed sheet is white in both modes; symbols stay coloured */
+    #plan .planbg { fill: #ffffff !important; }
+    #plan .shell { stroke: #000000 !important; }
+    #plan .gridline { stroke: #e2e2e2 !important; }
+    #plan .trussline, #plan .dimline { stroke: #000000 !important; }
+    #plan .dimtext { fill: #000000 !important; }
+    #plan .label { fill: #000000 !important; }
+    #plan .addr { fill: #333333 !important; }
+    .sym.g-moving-heads { color: #1f5fbf !important; }
+    .sym.g-rgbw-pars { color: #b8730a !important; }
+    .sym.g-stage-panels { color: #6b3fb0 !important; }
+    .sym.g-dj-world-beams { color: #0f7a55 !important; }
+    .sym.g-aura { color: #b02a5c !important; }
+    .sym.g-laser { color: #b32020 !important; }
     .wrap { padding: 0; max-width: none; }
     .sheet {
       border: none; padding: 0; gap: 5px; height: 188mm;
@@ -989,6 +1032,8 @@ const COLORS = {
 
 let mode = localStorage.getItem(STORE + "-mode") || "colour";
 const ink = (group) => (mode === "bw" ? "#111111" : (COLORS[group] || "#7b8b9b"));
+// symbols carry colour in both modes: the models are too alike in line art alone
+// symbol colour is set by the .g-<group> class in CSS, so print and preview agree
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const saved = (() => { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch { return null; } })();
 
@@ -1049,6 +1094,10 @@ function roomBox() {
   };
 }
 
+function slug(group) {
+  return String(group || "other").toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
+}
+
 function renderPlan() {
   const box = document.getElementById("plan");
   const room = roomBox();
@@ -1059,78 +1108,72 @@ function renderPlan() {
   const W = 1000, H = Math.round(W * (z1 - z0) / Math.max(x1 - x0, 0.001));
   const sx = x => ((x - x0) / (x1 - x0)) * W;
   const sy = z => H - ((z - z0) / (z1 - z0)) * H;
-  const lineC = mode === 'bw' ? '#111111' : '#cfcfcf';
-  const dimC = mode === 'bw' ? '#555555' : '#6f7f8f';
   const p = [];
   p.push(`<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Plan view of the rig">`);
-  p.push(`<rect width="${W}" height="${H}" fill="${mode === 'bw' ? '#ffffff' : '#0a0f15'}"/>`);
+  p.push(`<rect class="planbg" width="${W}" height="${H}"/>`);
 
-  // room shell and 1 m grid
-  p.push(`<rect x="${sx(room.x0)}" y="${sy(room.z1)}" width="${sx(room.x1) - sx(room.x0)}" height="${sy(room.z0) - sy(room.z1)}" fill="none" stroke="${lineC}" stroke-width="1.4"/>`);
+  p.push(`<rect class="shell" x="${sx(room.x0)}" y="${sy(room.z1)}" width="${sx(room.x1) - sx(room.x0)}" height="${sy(room.z0) - sy(room.z1)}"/>`);
   for (let gx = Math.ceil(room.x0); gx <= room.x1; gx++) {
-    p.push(`<line x1="${sx(gx)}" y1="${sy(room.z1)}" x2="${sx(gx)}" y2="${sy(room.z0)}" stroke="${mode === 'bw' ? '#e2e2e2' : '#18202a'}"/>`);
+    p.push(`<line class="gridline" x1="${sx(gx)}" y1="${sy(room.z1)}" x2="${sx(gx)}" y2="${sy(room.z0)}"/>`);
   }
   for (let gz = Math.ceil(room.z0); gz <= room.z1; gz++) {
-    p.push(`<line x1="${sx(room.x0)}" y1="${sy(gz)}" x2="${sx(room.x1)}" y2="${sy(gz)}" stroke="${mode === 'bw' ? '#e2e2e2' : '#18202a'}"/>`);
+    p.push(`<line class="gridline" x1="${sx(room.x0)}" y1="${sy(gz)}" x2="${sx(room.x1)}" y2="${sy(gz)}"/>`);
   }
 
-  // trusses
-  p.push(`<line x1="${sx(room.x0)}" y1="${sy(trussBack)}" x2="${sx(room.x1)}" y2="${sy(trussBack)}" stroke="${dimC}" stroke-dasharray="7 5"/>`);
-  p.push(`<text x="${sx(room.x0) + 4}" y="${sy(trussBack) - 5}" font-size="9" fill="${dimC}" letter-spacing="2">TRUSS BACK</text>`);
-  p.push(`<line x1="${sx(room.x0)}" y1="${sy(trussFront)}" x2="${sx(room.x1)}" y2="${sy(trussFront)}" stroke="${dimC}" stroke-dasharray="7 5"/>`);
-  p.push(`<text x="${sx(room.x0) + 4}" y="${sy(trussFront) - 5}" font-size="9" fill="${dimC}" letter-spacing="2">TRUSS FRONT</text>`);
+  p.push(`<line class="trussline" x1="${sx(room.x0)}" y1="${sy(trussBack)}" x2="${sx(room.x1)}" y2="${sy(trussBack)}" stroke-dasharray="7 5"/>`);
+  p.push(`<text class="dimtext" x="${sx(room.x0) + 4}" y="${sy(trussBack) - 5}" font-size="9" letter-spacing="2">TRUSS BACK</text>`);
+  p.push(`<line class="trussline" x1="${sx(room.x0)}" y1="${sy(trussFront)}" x2="${sx(room.x1)}" y2="${sy(trussFront)}" stroke-dasharray="7 5"/>`);
+  p.push(`<text class="dimtext" x="${sx(room.x0) + 4}" y="${sy(trussFront) - 5}" font-size="9" letter-spacing="2">TRUSS FRONT</text>`);
 
-  // stage band
   const bandTop = sy(room.z0 + 0.9), bandBot = sy(room.z0 + 0.1);
-  p.push(`<rect x="${sx(room.x0 + 0.4)}" y="${bandTop}" width="${sx(room.x1 - 0.4) - sx(room.x0 + 0.4)}" height="${bandBot - bandTop}" fill="none" stroke="${lineC}"/>`);
-  p.push(`<text x="${(sx(room.x0) + sx(room.x1)) / 2}" y="${(bandTop + bandBot) / 2 + 3}" font-size="9" fill="${dimC}" text-anchor="middle" letter-spacing="2">STAGE / DJ BOOTH</text>`);
+  p.push(`<rect class="shell" x="${sx(room.x0 + 0.4)}" y="${bandTop}" width="${sx(room.x1 - 0.4) - sx(room.x0 + 0.4)}" height="${bandBot - bandTop}"/>`);
+  p.push(`<text class="dimtext" x="${(sx(room.x0) + sx(room.x1)) / 2}" y="${(bandTop + bandBot) / 2 + 3}" font-size="9" text-anchor="middle" letter-spacing="2">STAGE / DJ BOOTH</text>`);
 
-  // dimensions
-  p.push(`<line x1="${sx(room.x0)}" y1="${sy(trussFront) + 12}" x2="${sx(room.x1)}" y2="${sy(trussFront) + 12}" stroke="${dimC}"/>`);
-  p.push(`<text x="${(sx(room.x0) + sx(room.x1)) / 2}" y="${sy(trussFront) + 22}" font-size="9.5" fill="${dimC}" text-anchor="middle">${building.width.toFixed(2)} m</text>`);
-  p.push(`<line x1="${sx(room.x0) - 12}" y1="${sy(room.z0)}" x2="${sx(room.x0) - 12}" y2="${sy(room.z1)}" stroke="${dimC}"/>`);
-  p.push(`<text x="${sx(room.x0) - 18}" y="${(sy(room.z0) + sy(room.z1)) / 2}" font-size="9.5" fill="${dimC}" text-anchor="middle" transform="rotate(-90 ${sx(room.x0) - 18} ${(sy(room.z0) + sy(room.z1)) / 2})">${building.depth.toFixed(2)} m</text>`);
+  p.push(`<line class="dimline" x1="${sx(room.x0)}" y1="${sy(trussFront) + 12}" x2="${sx(room.x1)}" y2="${sy(trussFront) + 12}"/>`);
+  p.push(`<text class="dimtext" x="${(sx(room.x0) + sx(room.x1)) / 2}" y="${sy(trussFront) + 22}" font-size="9.5" text-anchor="middle">${building.width.toFixed(2)} m</text>`);
+  p.push(`<line class="dimline" x1="${sx(room.x0) - 12}" y1="${sy(room.z0)}" x2="${sx(room.x0) - 12}" y2="${sy(room.z1)}"/>`);
+  p.push(`<text class="dimtext" x="${sx(room.x0) - 18}" y="${(sy(room.z0) + sy(room.z1)) / 2}" font-size="9.5" text-anchor="middle" transform="rotate(-90 ${sx(room.x0) - 18} ${(sy(room.z0) + sy(room.z1)) / 2})">${building.depth.toFixed(2)} m</text>`);
 
   for (const r of rows) {
-    const c = ink(r.group);
+    const g = `sym g-${slug(r.group)}`;
     const cx = sx(r.x), cy = sy(r.z);
     if (r.kind === "head") {
-      p.push(`<circle data-sym="head" cx="${cx}" cy="${cy}" r="6.5" fill="none" stroke="${c}" stroke-width="1.8"/>`);
-      p.push(`<line x1="${cx - 6.5}" y1="${cy}" x2="${cx + 6.5}" y2="${cy}" stroke="${c}" stroke-width="1.2"/>`);
-      p.push(`<line x1="${cx}" y1="${cy - 6.5}" x2="${cx}" y2="${cy + 6.5}" stroke="${c}" stroke-width="1.2"/>`);
+      p.push(`<circle class="${g}" data-sym="head" cx="${cx}" cy="${cy}" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>`);
+      p.push(`<line class="${g}" x1="${cx - 6.5}" y1="${cy}" x2="${cx + 6.5}" y2="${cy}" stroke="currentColor" stroke-width="1.2"/>`);
+      p.push(`<line class="${g}" x1="${cx}" y1="${cy - 6.5}" x2="${cx}" y2="${cy + 6.5}" stroke="currentColor" stroke-width="1.2"/>`);
     } else if (r.group === "Aura" || r.group === "Laser") {
-      p.push(`<circle data-sym="aura" cx="${cx}" cy="${cy}" r="6.5" fill="none" stroke="${c}" stroke-width="1.8"/><circle cx="${cx}" cy="${cy}" r="2.6" fill="none" stroke="${c}" stroke-width="1.4"/>`);
+      p.push(`<circle class="${g}" data-sym="aura" cx="${cx}" cy="${cy}" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle class="${g}" cx="${cx}" cy="${cy}" r="2.6" fill="none" stroke="currentColor" stroke-width="1.4"/>`);
     } else if (r.group === "DJ World Beams") {
-      p.push(`<rect data-sym="beam" x="${cx - 6.5}" y="${cy - 4.5}" width="13" height="9" fill="none" stroke="${c}" stroke-width="1.8"/>`);
-      p.push(`<line x1="${cx - 6.5}" y1="${cy}" x2="${cx + 6.5}" y2="${cy}" stroke="${c}" stroke-width="1.2"/>`);
+      p.push(`<rect class="${g}" data-sym="beam" x="${cx - 6.5}" y="${cy - 4.5}" width="13" height="9" fill="none" stroke="currentColor" stroke-width="1.8"/>`);
+      p.push(`<line class="${g}" x1="${cx - 6.5}" y1="${cy}" x2="${cx + 6.5}" y2="${cy}" stroke="currentColor" stroke-width="1.2"/>`);
     } else if (r.group === "Stage Panels") {
-      p.push(`<rect data-sym="panel" x="${cx - 6.5}" y="${cy - 6.5}" width="13" height="13" fill="none" stroke="${c}" stroke-width="1.8"/>`);
-      p.push(`<line x1="${cx - 6.5}" y1="${cy - 6.5}" x2="${cx + 6.5}" y2="${cy + 6.5}" stroke="${c}" stroke-width="1.2"/>`);
+      p.push(`<rect class="${g}" data-sym="panel" x="${cx - 6.5}" y="${cy - 6.5}" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"/>`);
+      p.push(`<line class="${g}" x1="${cx - 6.5}" y1="${cy - 6.5}" x2="${cx + 6.5}" y2="${cy + 6.5}" stroke="currentColor" stroke-width="1.2"/>`);
     } else {
-      p.push(`<rect data-sym="par" x="${cx - 6.5}" y="${cy - 6.5}" width="13" height="13" fill="none" stroke="${c}" stroke-width="1.8"/>`);
+      p.push(`<rect class="${g}" data-sym="par" x="${cx - 6.5}" y="${cy - 6.5}" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"/>`);
     }
-    p.push(`<text x="${cx + 10}" y="${cy - 1}" font-size="10" fill="${c}">${esc(r.name)}</text>`);
-    p.push(`<text x="${cx + 10}" y="${cy + 9}" font-size="8.5" fill="${mode === 'bw' ? '#555555' : '#7b8b9b'}">${span(r)}</text>`);
+    p.push(`<text class="label" x="${cx + 10}" y="${cy - 1}">${esc(r.name)}</text>`);
+    p.push(`<text class="addr" x="${cx + 10}" y="${cy + 9}">${span(r)}</text>`);
   }
   p.push(`</svg>`);
   box.innerHTML = p.join("");
 }
 
 function symbolSVG(group, c, size = 13) {
-  const open = `<svg width="${size}" height="${size}" viewBox="0 0 14 14" aria-hidden="true">`;
+  const open = `<svg class="sym g-${slug(group)}" width="${size}" height="${size}" viewBox="0 0 14 14" aria-hidden="true">`;
   if (group === "Moving Heads") {
-    return open + `<circle cx="7" cy="7" r="5.2" fill="none" stroke="${c}" stroke-width="1.3"/><line x1="1.8" y1="7" x2="12.2" y2="7" stroke="${c}" stroke-width="1.1"/><line x1="7" y1="1.8" x2="7" y2="12.2" stroke="${c}" stroke-width="1.1"/></svg>`;
+    return open + `<circle cx="7" cy="7" r="5.2" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="1.8" y1="7" x2="12.2" y2="7" stroke="currentColor" stroke-width="1.1"/><line x1="7" y1="1.8" x2="7" y2="12.2" stroke="currentColor" stroke-width="1.1"/></svg>`;
   }
   if (group === "Aura" || group === "Laser") {
-    return open + `<circle cx="7" cy="7" r="5.2" fill="none" stroke="${c}" stroke-width="1.3"/><circle cx="7" cy="7" r="2" fill="none" stroke="${c}" stroke-width="1.3"/></svg>`;
+    return open + `<circle cx="7" cy="7" r="5.2" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`;
   }
   if (group === "DJ World Beams") {
-    return open + `<rect x="2" y="3.8" width="10" height="6.4" fill="none" stroke="${c}" stroke-width="1.3"/><line x1="2" y1="7" x2="12" y2="7" stroke="${c}" stroke-width="1.1"/></svg>`;
+    return open + `<rect x="2" y="3.8" width="10" height="6.4" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="2" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.1"/></svg>`;
   }
   if (group === "Stage Panels") {
-    return open + `<rect x="2.2" y="2.2" width="9.6" height="9.6" fill="none" stroke="${c}" stroke-width="1.3"/><line x1="2.2" y1="2.2" x2="11.8" y2="11.8" stroke="${c}" stroke-width="1.1"/></svg>`;
+    return open + `<rect x="2.2" y="2.2" width="9.6" height="9.6" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="2.2" y1="2.2" x2="11.8" y2="11.8" stroke="currentColor" stroke-width="1.1"/></svg>`;
   }
-  return open + `<rect x="2.2" y="2.2" width="9.6" height="9.6" fill="none" stroke="${c}" stroke-width="1.3"/></svg>`;
+  return open + `<rect x="2.2" y="2.2" width="9.6" height="9.6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`;
 }
 
 function renderLegend() {
@@ -1150,8 +1193,7 @@ function renderLegend() {
     `<tr><th>Symbol</th><th>Group</th><th>Mode</th><th>Address</th><th style="text-align:right">Qty</th></tr>` +
     keys.map(k => {
       const e = by.get(k);
-      const c = ink(k);
-      return `<tr><td>${symbolSVG(k, c)}</td><td class="g">${esc(k)}</td>
+      return `<tr><td>${symbolSVG(k)}</td><td class="g">${esc(k)}</td>
         <td class="n">${[...e.modes].join(" / ")}</td>
         <td class="n">${e.lo}–${e.hi}</td>
         <td class="n" style="text-align:right">${e.count}</td></tr>`;
@@ -1228,7 +1270,7 @@ function syncGeo() {
   const d = document.getElementById("tbDate");
   if (d) d.textContent = new Date().toISOString().slice(0, 10);
   const m = document.getElementById("tbMode");
-  if (m) m.textContent = mode === "bw" ? "MONO" : "COLOUR";
+  if (m) m.textContent = "COLOUR SYMBOLS";
 }
 
 const LOGO_KEY = STORE + "-logo";
@@ -1358,7 +1400,7 @@ const ACI = {
   "DJ World Beams": 3, "Aura": 1, "Laser": 1
 };
 const layerFor = (group) => "FIX-" + (group || "OTHER").split(/[^A-Za-z]/)[0].toUpperCase();
-const layerColour = (group) => (mode === "bw" ? 7 : (ACI[group] || 7));
+const layerColour = (group) => (ACI[group] || 7);
 
 function buildDXF() {
   const out = [];
@@ -1570,6 +1612,11 @@ function buildDXF() {
   const layerNames = ["border", "truss", "grid", "text", "dim", "patch",
     ...new Set(rows.map(r => layerFor(r.group)))];
   const colourOf = (name) => {
+    // fixture layers keep their colour in both modes; sheet furniture does not
+    if (name.startsWith("FIX-")) {
+      const group = rows.find(r => layerFor(r.group) === name);
+      return group ? (ACI[group.group] || 7) : 7;
+    }
     if (mode === "bw") return 7;
     if (name === "truss") return 8;
     if (name === "grid") return 253;
@@ -1601,22 +1648,7 @@ function applyMode() {
   syncGeo();
 }
 
-// the printed sheet is always the CAD plot: line art, black on white
-let modeBeforePrint = null;
-window.addEventListener("beforeprint", () => {
-  modeBeforePrint = mode;
-  mode = "bw";
-  renderPlan();
-  renderLegend();
-  syncGeo();
-});
-window.addEventListener("afterprint", () => {
-  if (modeBeforePrint) mode = modeBeforePrint;
-  modeBeforePrint = null;
-  renderPlan();
-  renderLegend();
-  syncGeo();
-});
+
 
 document.getElementById("mode").onclick = () => {
   mode = mode === "bw" ? "colour" : "bw";
