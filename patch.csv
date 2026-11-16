@@ -1,0 +1,42 @@
+universe,address,end,channels,fixture,profile,wmx1_group
+1,1,16,16,ld-2136-5r 200w moving head.1,LD-2136-5R 200W Moving Head,Moving Heads
+1,17,32,16,ld-2136-5r 200w moving head.2,LD-2136-5R 200W Moving Head,Moving Heads
+1,33,48,16,ld-2136-5r 200w moving head.3,LD-2136-5R 200W Moving Head,Moving Heads
+1,49,64,16,ld-2136-5r 200w moving head.4,LD-2136-5R 200W Moving Head,Moving Heads
+1,65,80,16,ld-2136-5r 200w moving head.5,LD-2136-5R 200W Moving Head,Moving Heads
+1,81,96,16,ld-2136-5r 200w moving head.6,LD-2136-5R 200W Moving Head,Moving Heads
+1,97,112,16,ld-2136-5r 200w moving head.7,LD-2136-5R 200W Moving Head,Moving Heads
+1,113,128,16,ld-2136-5r 200w moving head.8,LD-2136-5R 200W Moving Head,Moving Heads
+1,129,144,16,ld-2136-5r 200w moving head.9,LD-2136-5R 200W Moving Head,Moving Heads
+1,145,160,16,ld-2136-5r 200w moving head.10,LD-2136-5R 200W Moving Head,Moving Heads
+1,161,176,16,ld-2136-5r 200w moving head.12,LD-2136-5R 200W Moving Head,Moving Heads
+1,177,192,16,ld-2136-5r 200w moving head.13,LD-2136-5R 200W Moving Head,Moving Heads
+1,193,208,16,ld-2136-5r 200w moving head.14,LD-2136-5R 200W Moving Head,Moving Heads
+1,209,224,16,ld-2136-5r 200w moving head.15,LD-2136-5R 200W Moving Head,Moving Heads
+1,225,228,4,rgbw.17,RGBW 4ch,RGBW Pars
+1,229,232,4,rgbw.18,RGBW 4ch,RGBW Pars
+1,233,236,4,rgbw.19,RGBW 4ch,RGBW Pars
+1,237,240,4,rgbw.20,RGBW 4ch,RGBW Pars
+1,241,244,4,rgbw.21,RGBW 4ch,RGBW Pars
+1,245,248,4,rgbw.22,RGBW 4ch,RGBW Pars
+1,249,252,4,rgbw.23,RGBW 4ch,RGBW Pars
+1,253,256,4,rgbw.24,RGBW 4ch,RGBW Pars
+1,257,272,16,ld-2136-5r 200w moving head.38,LD-2136-5R 200W Moving Head,Moving Heads
+1,273,288,16,ld-2136-5r 200w moving head.39,LD-2136-5R 200W Moving Head,Moving Heads
+1,289,313,25,aura.25,Aura,Aura
+1,314,338,25,aura.26,Aura,Aura
+1,339,349,11,stage panel 864.26,Stage Panel 864,Stage Panels
+1,350,360,11,stage panel 864.27,Stage Panel 864,Stage Panels
+1,361,371,11,stage panel 864.28,Stage Panel 864,Stage Panels
+1,372,382,11,stage panel 864.29,Stage Panel 864,Stage Panels
+1,383,393,11,stage panel 864.30,Stage Panel 864,Stage Panels
+1,394,404,11,stage panel 864.31,Stage Panel 864,Stage Panels
+1,405,415,11,stage panel 864.32,Stage Panel 864,Stage Panels
+1,416,426,11,stage panel 864.33,Stage Panel 864,Stage Panels
+1,427,437,11,stage panel 864.34,Stage Panel 864,Stage Panels
+1,438,448,11,stage panel 864.35,Stage Panel 864,Stage Panels
+1,449,476,28,6眼rgb激光灯.41,6-Eye RGB Laser,Laser
+1,477,485,9,dj world led beam 8x12w rgbw.40,DJ World LED Beam 8x12W,DJ World Beams
+1,486,494,9,dj world led beam 8x12w rgbw.41,DJ World LED Beam 8x12W,DJ World Beams
+1,495,503,9,dj world led beam 8x12w rgbw.38,DJ World LED Beam 8x12W,DJ World Beams
+1,504,512,9,dj world led beam 8x12w rgbw.35,DJ World LED Beam 8x12W,DJ World Beams

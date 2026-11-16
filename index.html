@@ -1,0 +1,1632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Presi — lighting plot and DMX patch</title>
+<style>
+  :root {
+    --bg: #0b0b0b; --panel: #0e0e0e; --ink: #d9d9d9; --dim: #7a7a7a;
+    --line: #2f2f2f; --grid: #1c1c1c; --accent: #f0f0f0;
+    --head: #7fa8d9; --par: #d9c07f; --panel-c: #b98fd9; --beam: #7fd9b0;
+    --aura: #d98fa0; --laser: #d98f8f;
+    --mono: "SF Mono", ui-monospace, Menlo, "DejaVu Sans Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #050505; }
+  body {
+    color: var(--ink); font: 12.5px/1.5 var(--mono); letter-spacing: .01em;
+    -webkit-font-smoothing: antialiased;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .wrap { max-width: 1560px; margin: 0 auto; padding: 12px; }
+  .sheet {
+    background: var(--bg); border: 1px solid var(--line);
+    padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 10px;
+  }
+
+  /* action bar */
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    border-bottom: 1px solid var(--line); padding-bottom: 8px;
+  }
+  .toolbar button, .toolbar label.file {
+    font: inherit; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    padding: 4px 9px; border: 1px solid var(--line); background: transparent;
+    color: var(--dim); cursor: pointer; transition: none;
+  }
+  .toolbar button:hover, .toolbar label.file:hover { color: var(--accent); border-color: var(--dim); }
+  .toolbar button.primary { color: #0b0b0b; background: var(--accent); border-color: var(--accent); }
+  .toolbar button.primary:hover { background: #fff; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar .hint { color: #5c5c5c; font-size: 10.5px; letter-spacing: .04em; }
+  input[type=file] { display: none; }
+  .status {
+    font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim);
+    border: 1px dashed var(--line); padding: 5px 8px;
+  }
+  .status::before { content: "[ STATUS ] "; color: #5c5c5c; }
+  .status.bad { border-color: #6b3a3a; color: #e0a0a0; }
+  .status.bad::before { content: "[ ERROR ] "; color: #b06060; }
+  .status.good { border-color: #33513f; color: #9fd9b5; }
+  .status.good::before { content: "[ OK ] "; color: #6f9f85; }
+
+  /* header */
+  .top {
+    display: grid; grid-template-columns: 1fr 1.25fr auto; gap: 16px; align-items: end;
+    border-bottom: 1px solid var(--line); padding-bottom: 8px;
+  }
+  .venue h1 {
+    margin: 0; font-size: 26px; letter-spacing: .18em; font-weight: 700; text-transform: uppercase;
+  }
+  .venue h1::before { content: "✶ "; color: var(--dim); }
+  .venue p { margin: 4px 0 0; font-size: 10px; letter-spacing: .34em; color: var(--dim); text-transform: uppercase; }
+  .title h2 {
+    margin: 0; font-size: 15px; letter-spacing: .16em; text-transform: uppercase; font-weight: 600;
+  }
+  .title p { margin: 4px 0 0; font-size: 10px; letter-spacing: .28em; color: var(--dim); text-transform: uppercase; }
+  .brandwrap { display: flex; align-items: center; gap: 6px; justify-self: end; }
+  .brand {
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase; text-align: right;
+    color: var(--dim); border: 1px solid var(--line); padding: 4px 8px; outline: none;
+    max-width: 220px; overflow-wrap: anywhere; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; min-height: 34px; min-width: 120px;
+  }
+  .brand:focus, .brand:hover { border-color: var(--dim); }
+  .brand.dragover { border-color: var(--accent); color: var(--accent); }
+  #brandText:focus { color: var(--accent); outline: none; }
+  #brandImg { max-height: 42px; max-width: 200px; display: block; }
+  #brandImg.invert { filter: invert(1); }
+  .brandclear { border: 1px solid var(--line); background: transparent; color: var(--dim); cursor: pointer; font-size: 11px; padding: 2px 6px; }
+  .brandclear:hover { color: var(--laser); border-color: var(--laser); }
+
+  /* body */
+  .body { display: grid; grid-template-columns: 1.5fr 1.05fr; gap: 10px; align-items: start; }
+  h3 {
+    margin: 0 0 6px; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--dim); font-weight: 500;
+  }
+  h3::before { content: "▾ "; color: #5c5c5c; }
+  .plot { border: 1px solid var(--line); padding: 8px; background: #090909; display: flex; flex-direction: column; }
+  #plan { flex: none; height: auto; }
+  #plan svg { display: block; width: 100%; height: auto; }
+  #plan text { font-family: var(--mono); }
+  .rail { display: flex; flex-direction: column; gap: 10px; }
+  .box { border: 1px solid var(--line); padding: 8px; background: var(--panel); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th {
+    font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: #6a6a6a;
+    text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line); font-weight: 500;
+  }
+  td { padding: 2px 4px; border-bottom: 1px dotted #232323; vertical-align: middle; }
+  td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.g { white-space: nowrap; }
+  #patch th:nth-child(1), #patch td:nth-child(1) { width: 62px; }
+  #patch th:nth-child(3), #patch td:nth-child(3) { width: 84px; }
+  #patch th:nth-child(4), #patch td:nth-child(4) { width: 96px; }
+  #patch th:nth-child(5), #patch td:nth-child(5) { width: 54px; }
+  #patch th:nth-child(6), #patch td:nth-child(6) { width: 18px; }
+  .sw { display: inline-block; width: 7px; height: 7px; margin-right: 6px; vertical-align: middle; }
+  td input {
+    width: 100%; font: inherit; font-size: 11px; color: var(--ink); background: transparent;
+    border: 1px solid transparent; padding: 1px 2px;
+  }
+  td input:hover { border-color: var(--line); }
+  td input:focus { outline: none; border-color: var(--dim); background: #141414; }
+  .del { border: none; background: none; color: #5c5c5c; cursor: pointer; font-size: 12px; }
+  .del:hover { color: var(--laser); }
+
+  .geo {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--dim); margin: 0 0 6px;
+  }
+  .geo label { display: flex; align-items: center; gap: 5px; }
+  .geo input {
+    width: 54px; font: inherit; font-size: 11px; color: var(--ink);
+    background: transparent; border: 1px solid var(--line); padding: 2px 4px; text-align: right;
+  }
+  .geo input:focus { outline: none; border-color: var(--dim); background: #141414; }
+  .geonote { color: #5c5c5c; text-transform: none; letter-spacing: .02em; }
+
+  footer {
+    display: grid; grid-template-columns: 1fr 1.6fr auto; gap: 12px;
+    border-top: 1px solid var(--line); padding-top: 8px; align-items: start;
+  }
+  .tb {
+    display: grid; grid-template-columns: repeat(2, minmax(78px, auto));
+    border: 1px solid var(--line); font-size: 10px;
+  }
+  .tb > div { padding: 3px 7px; border-bottom: 1px solid var(--line); }
+  .tb > div:nth-last-child(-n+2) { border-bottom: none; }
+  .tb > div:nth-child(odd) { border-right: 1px solid var(--line); }
+  .tb .k { display: block; font-size: 8.5px; }
+  .tb b { font-weight: 500; letter-spacing: .06em; }
+  .k { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: #5c5c5c; }
+  .v { font-size: 12px; letter-spacing: .04em; }
+  ul.setup { margin: 4px 0 0; padding-left: 14px; font-size: 10.5px; color: #a8a8a8; }
+  ul.setup li::marker { content: "· "; color: #5c5c5c; }
+
+  /* monochrome preview: white paper, black ink */
+  body.bw {
+    --bg: #ffffff; --panel: #ffffff; --ink: #111111; --dim: #555555;
+    --line: #9a9a9a; --grid: #e2e2e2; --accent: #111111;
+    --head: #111; --par: #111; --panel-c: #111; --beam: #111; --aura: #111; --laser: #111;
+  }
+  body.bw .plot { background: #ffffff; }
+  body.bw .toolbar button { color: #333; }
+  body.bw .toolbar button.primary { background: #111; color: #fff; border-color: #111; }
+  body.bw .toolbar button:hover { border-color: #111; color: #111; }
+  body.bw .status { border-color: #b0b0b0; color: #333; }
+  body.bw .status.good, body.bw .status.bad { border-color: #b0b0b0; color: #111; background: #fff; }
+  body.bw .brand { color: #333; border-color: #b0b0b0; }
+  body.bw td input { color: #111; }
+  body.bw td input:focus { background: #f4f4f4; border-color: #111; }
+  body.bw .del { color: #888; }
+
+  @media (max-width: 1060px) {
+    .body { grid-template-columns: 1fr; }
+    #plan { height: 44vh; }
+    .top { grid-template-columns: 1fr; gap: 8px; }
+    .brand { justify-self: start; text-align: left; max-width: none; }
+    td input { font-size: 11.5px; }
+  }
+
+  @media print {
+    @page { size: A4 landscape; margin: 5mm; }
+    html, body { background: #fff !important; color: #000 !important; }
+    .sheet, .box, .plot, .tb, .status { background: #fff !important; }
+    .box, .plot, .tb, .sheet { border-color: #000 !important; }
+    body, .venue h1, .title h2, .brand, h3, .k, .v, td, th, .setup { color: #000 !important; }
+    .venue p, .title p, .setup, .geonote { color: #333 !important; }
+    td { border-bottom: 1px dotted #999 !important; }
+    th { border-bottom: 1px solid #000 !important; }
+    .geo, .status, .toolbar, .brandclear, .hideprint { display: none !important; }
+    .wrap { padding: 0; max-width: none; }
+    .sheet {
+      border: none; padding: 0; gap: 5px; height: 188mm;
+      display: flex; flex-direction: column; background: var(--bg);
+    }
+    .toolbar, .status, .hint, .del { display: none !important; }
+    .top { padding-bottom: 6px; grid-template-columns: 1fr 1.25fr auto; align-items: end; }
+    #legend td { padding: 0.6px 2px; }
+    #legend th { padding: 0.6px 2px; }
+    .venue h1 { font-size: 19px; }
+    .title h2 { font-size: 13px; }
+    .brand { font-size: 10px; min-height: 0; min-width: 0; padding: 2px 6px; }
+    #brandImg { max-height: 34px; max-width: 170px; }
+    h3 { margin-bottom: 4px; }
+    .body { flex: 1; min-height: 0; grid-template-columns: 1.5fr 1.08fr; gap: 8px; }
+    .plot { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+    #plan { height: auto; flex: 1; min-height: 0; }
+    #plan svg { width: 100%; height: 100%; }
+    .rail { height: 100%; min-height: 0; }
+    .box { display: flex; flex-direction: column; min-height: 0; }
+    #legendBox { flex: 0 0 auto; }
+    #patchBox { flex: 1 1 auto; min-height: 0; }
+    table { font-size: 5.8px; line-height: 1.05; }
+    th { font-size: 5.5px; padding: 0 2px; }
+    td { padding: 0 2px; border-bottom-width: 1px; }
+    td input { font-size: 5.8px; border: none; padding: 0; color: #000 !important; background: transparent !important; }
+    .tb b, .tb .k { color: #000 !important; }
+    tr { break-inside: avoid; }
+    .box, .plot { break-inside: avoid; }
+    footer { padding-top: 6px; align-items: start; }
+    ul.setup { font-size: 7.6px; margin-top: 2px; }
+    .v { font-size: 10px; }
+    #patch th:nth-child(1), #patch td:nth-child(1) { width: 34px; }
+    #patch th:nth-child(3), #patch td:nth-child(3) { width: 40px; }
+    #patch th:nth-child(4), #patch td:nth-child(4) { width: 74px; }
+    #patch th:nth-child(5), #patch td:nth-child(5) { width: 32px; }
+    #patch th:nth-child(6), #patch td:nth-child(6) { width: 10px; }
+    #patch td:nth-child(1) input { width: 32px; }
+    #patch td:nth-child(3) input { width: 38px; }
+    #patch td:nth-child(4) input { width: 30px; }
+    #patch td:nth-child(5) input { width: 24px; }
+    #patch .del { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sheet">
+    <div class="toolbar">
+      <button id="print" class="primary">[⌘P] Print / PDF</button>
+      <button id="exportCsv">[CSV] Export</button>
+      <button id="exportJson">[JSON] Export</button>
+      <label class="file" for="importFile">[JSON] Import</label>
+      <input type="file" id="importFile" accept=".json,application/json" />
+      <button id="addRow">[+] Fixture</button>
+      <button id="exportDxf">[DXF] Export</button>
+      <button id="mode">[⌘B] Preview: colour</button>
+      <button id="reset">[↺] Reset</button>
+      <span class="spacer"></span>
+      <span class="hint">Edits save in this browser. Click the venue, the brand, or any cell to change it.</span>
+    </div>
+    <div class="status" id="status"></div>
+
+    <header class="top">
+      <div class="venue">
+        <h1 contenteditable="true" data-text="venue">PRESI</h1>
+        <p contenteditable="true" data-text="room">VENUE — MAIN ROOM</p>
+      </div>
+      <div class="title">
+        <h2 contenteditable="true" data-text="title">Lighting plot &amp; DMX patch</h2>
+        <p contenteditable="true" data-text="sub">Universe 1 · 512 channels</p>
+      </div>
+      <div class="brandwrap">
+        <label class="brand" id="brandSlot" title="Drop a PNG, or click to choose one">
+          <img id="brandImg" alt="Client or shop logo" hidden />
+          <span id="brandText" contenteditable="true" data-text="brand">YOUR BRAND</span>
+          <input type="file" id="brandFile" accept="image/png,image/svg+xml,image/jpeg" />
+        </label>
+        <button class="brandclear hideprint" id="brandInvert" title="Invert the logo for white paper" hidden>INV</button>
+        <button class="brandclear hideprint" id="brandClear" title="Remove the logo" hidden>×</button>
+      </div>
+    </header>
+
+    <div class="body">
+      <section class="plot">
+        <h3>Top view (from recovered POSX / POSY)</h3>
+        <div class="geo hideprint">
+          <label>ROOM W <input id="bW" inputmode="decimal"> m</label>
+          <label>ROOM D <input id="bD" inputmode="decimal"> m</label>
+          <label>TRUSS B <input id="bBack" inputmode="decimal"> m</label>
+          <label>TRUSS F <input id="bFront" inputmode="decimal"> m</label>
+          <span class="geonote">room and trusses are not surveyed — edit here</span>
+        </div>
+        <div id="plan"></div>
+      </section>
+
+      <aside class="rail">
+        <div class="box" id="legendBox">
+          <h3>Fixture legend</h3>
+          <table id="legend"></table>
+        </div>
+        <div class="box" id="patchBox">
+          <h3>DMX patch (by address)</h3>
+          <table id="patch"></table>
+        </div>
+      </aside>
+    </div>
+
+    <footer>
+      <div>
+        <div class="k">Console / control</div>
+        <div class="v"><strong contenteditable="true" data-text="console">ADJ myDMX 3.0</strong></div>
+      </div>
+      <div>
+        <div class="k">Setup info</div>
+        <ul class="setup">
+          <li>Plan positions recovered from the show file, not re-surveyed.</li>
+          <li>Room size and truss offsets are editable and were not surveyed.</li>
+          <li>Addresses and channel counts as programmed; channel order inside each fixture was not decrypted.</li>
+        </ul>
+      </div>
+      <div class="tb">
+        <div><span class="k">Drawing</span><b>PRESI-PLOT-01</b></div>
+        <div><span class="k">Scale</span><b>1:100 @ A3</b></div>
+        <div><span class="k">Rev</span><b>A</b></div>
+        <div><span class="k">Date</span><b id="tbDate">—</b></div>
+        <div><span class="k">Sheet</span><b>1 / 1</b></div>
+        <div><span class="k">Plot</span><b id="tbMode">—</b></div>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<script>
+const DATA = {
+ "venue": "Presi",
+ "universe": 1,
+ "rows": [
+  {
+   "id": "1:1",
+   "uv": 1,
+   "address": 1,
+   "end": 16,
+   "channels": 16,
+   "name": "MH-1",
+   "deskName": "ld-2136-5r 200w moving head.1",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": -8,
+   "z": -3.74,
+   "note": ""
+  },
+  {
+   "id": "1:17",
+   "uv": 1,
+   "address": 17,
+   "end": 32,
+   "channels": 16,
+   "name": "MH-2",
+   "deskName": "ld-2136-5r 200w moving head.2",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": -7.86,
+   "z": -1.43,
+   "note": ""
+  },
+  {
+   "id": "1:33",
+   "uv": 1,
+   "address": 33,
+   "end": 48,
+   "channels": 16,
+   "name": "MH-3",
+   "deskName": "ld-2136-5r 200w moving head.3",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": -7.94,
+   "z": 1.16,
+   "note": ""
+  },
+  {
+   "id": "1:49",
+   "uv": 1,
+   "address": 49,
+   "end": 64,
+   "channels": 16,
+   "name": "MH-4",
+   "deskName": "ld-2136-5r 200w moving head.4",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": -5.6,
+   "z": -1.94,
+   "note": ""
+  },
+  {
+   "id": "1:65",
+   "uv": 1,
+   "address": 65,
+   "end": 80,
+   "channels": 16,
+   "name": "MH-5",
+   "deskName": "ld-2136-5r 200w moving head.5",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": -5.52,
+   "z": 2.06,
+   "note": ""
+  },
+  {
+   "id": "1:81",
+   "uv": 1,
+   "address": 81,
+   "end": 96,
+   "channels": 16,
+   "name": "MH-6",
+   "deskName": "ld-2136-5r 200w moving head.6",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": -2.93,
+   "z": -3.46,
+   "note": ""
+  },
+  {
+   "id": "1:97",
+   "uv": 1,
+   "address": 97,
+   "end": 112,
+   "channels": 16,
+   "name": "MH-7",
+   "deskName": "ld-2136-5r 200w moving head.7",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": -0.09,
+   "z": 0.01,
+   "note": ""
+  },
+  {
+   "id": "1:113",
+   "uv": 1,
+   "address": 113,
+   "end": 128,
+   "channels": 16,
+   "name": "MH-8",
+   "deskName": "ld-2136-5r 200w moving head.8",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": 2.55,
+   "z": -1.6,
+   "note": ""
+  },
+  {
+   "id": "1:129",
+   "uv": 1,
+   "address": 129,
+   "end": 144,
+   "channels": 16,
+   "name": "MH-9",
+   "deskName": "ld-2136-5r 200w moving head.9",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": 2.3,
+   "z": 1.89,
+   "note": ""
+  },
+  {
+   "id": "1:145",
+   "uv": 1,
+   "address": 145,
+   "end": 160,
+   "channels": 16,
+   "name": "MH-10",
+   "deskName": "ld-2136-5r 200w moving head.10",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": 4.17,
+   "z": -3.75,
+   "note": ""
+  },
+  {
+   "id": "1:161",
+   "uv": 1,
+   "address": 161,
+   "end": 176,
+   "channels": 16,
+   "name": "MH-12",
+   "deskName": "ld-2136-5r 200w moving head.12",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": 4.15,
+   "z": -1.29,
+   "note": ""
+  },
+  {
+   "id": "1:177",
+   "uv": 1,
+   "address": 177,
+   "end": 192,
+   "channels": 16,
+   "name": "MH-13",
+   "deskName": "ld-2136-5r 200w moving head.13",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": 4.07,
+   "z": 0.46,
+   "note": ""
+  },
+  {
+   "id": "1:193",
+   "uv": 1,
+   "address": 193,
+   "end": 208,
+   "channels": 16,
+   "name": "MH-14",
+   "deskName": "ld-2136-5r 200w moving head.14",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": 4.02,
+   "z": 2.29,
+   "note": ""
+  },
+  {
+   "id": "1:209",
+   "uv": 1,
+   "address": 209,
+   "end": 224,
+   "channels": 16,
+   "name": "MH-15",
+   "deskName": "ld-2136-5r 200w moving head.15",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": 7.73,
+   "z": 1.35,
+   "note": ""
+  },
+  {
+   "id": "1:225",
+   "uv": 1,
+   "address": 225,
+   "end": 228,
+   "channels": 4,
+   "name": "PAR-17",
+   "deskName": "rgbw.17",
+   "brand": "",
+   "model": "RGBW 4ch",
+   "group": "RGBW Pars",
+   "kind": "par",
+   "x": -5.86,
+   "z": 5.86,
+   "note": ""
+  },
+  {
+   "id": "1:229",
+   "uv": 1,
+   "address": 229,
+   "end": 232,
+   "channels": 4,
+   "name": "PAR-18",
+   "deskName": "rgbw.18",
+   "brand": "",
+   "model": "RGBW 4ch",
+   "group": "RGBW Pars",
+   "kind": "par",
+   "x": -4.42,
+   "z": 5.86,
+   "note": ""
+  },
+  {
+   "id": "1:233",
+   "uv": 1,
+   "address": 233,
+   "end": 236,
+   "channels": 4,
+   "name": "PAR-19",
+   "deskName": "rgbw.19",
+   "brand": "",
+   "model": "RGBW 4ch",
+   "group": "RGBW Pars",
+   "kind": "par",
+   "x": -2.97,
+   "z": 5.86,
+   "note": ""
+  },
+  {
+   "id": "1:237",
+   "uv": 1,
+   "address": 237,
+   "end": 240,
+   "channels": 4,
+   "name": "PAR-20",
+   "deskName": "rgbw.20",
+   "brand": "",
+   "model": "RGBW 4ch",
+   "group": "RGBW Pars",
+   "kind": "par",
+   "x": -1.54,
+   "z": 5.86,
+   "note": ""
+  },
+  {
+   "id": "1:241",
+   "uv": 1,
+   "address": 241,
+   "end": 244,
+   "channels": 4,
+   "name": "PAR-21",
+   "deskName": "rgbw.21",
+   "brand": "",
+   "model": "RGBW 4ch",
+   "group": "RGBW Pars",
+   "kind": "par",
+   "x": -0.1,
+   "z": 5.86,
+   "note": ""
+  },
+  {
+   "id": "1:245",
+   "uv": 1,
+   "address": 245,
+   "end": 248,
+   "channels": 4,
+   "name": "PAR-22",
+   "deskName": "rgbw.22",
+   "brand": "",
+   "model": "RGBW 4ch",
+   "group": "RGBW Pars",
+   "kind": "par",
+   "x": 1.33,
+   "z": 5.86,
+   "note": ""
+  },
+  {
+   "id": "1:249",
+   "uv": 1,
+   "address": 249,
+   "end": 252,
+   "channels": 4,
+   "name": "PAR-23",
+   "deskName": "rgbw.23",
+   "brand": "",
+   "model": "RGBW 4ch",
+   "group": "RGBW Pars",
+   "kind": "par",
+   "x": 2.78,
+   "z": 5.86,
+   "note": ""
+  },
+  {
+   "id": "1:253",
+   "uv": 1,
+   "address": 253,
+   "end": 256,
+   "channels": 4,
+   "name": "PAR-24",
+   "deskName": "rgbw.24",
+   "brand": "",
+   "model": "RGBW 4ch",
+   "group": "RGBW Pars",
+   "kind": "par",
+   "x": 4.21,
+   "z": 5.86,
+   "note": ""
+  },
+  {
+   "id": "1:257",
+   "uv": 1,
+   "address": 257,
+   "end": 272,
+   "channels": 16,
+   "name": "MH-38",
+   "deskName": "ld-2136-5r 200w moving head.38",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": 7.83,
+   "z": -1.11,
+   "note": ""
+  },
+  {
+   "id": "1:273",
+   "uv": 1,
+   "address": 273,
+   "end": 288,
+   "channels": 16,
+   "name": "MH-39",
+   "deskName": "ld-2136-5r 200w moving head.39",
+   "brand": "",
+   "model": "LD-2136-5R 200W Moving Head",
+   "group": "Moving Heads",
+   "kind": "head",
+   "x": 8,
+   "z": -3.47,
+   "note": ""
+  },
+  {
+   "id": "1:289",
+   "uv": 1,
+   "address": 289,
+   "end": 313,
+   "channels": 25,
+   "name": "AURA-25",
+   "deskName": "aura.25",
+   "brand": "",
+   "model": "Aura",
+   "group": "Aura",
+   "kind": "aura",
+   "x": -5.83,
+   "z": 4.16,
+   "note": ""
+  },
+  {
+   "id": "1:314",
+   "uv": 1,
+   "address": 314,
+   "end": 338,
+   "channels": 25,
+   "name": "AURA-26",
+   "deskName": "aura.26",
+   "brand": "",
+   "model": "Aura",
+   "group": "Aura",
+   "kind": "aura",
+   "x": 2.51,
+   "z": 3.86,
+   "note": ""
+  },
+  {
+   "id": "1:339",
+   "uv": 1,
+   "address": 339,
+   "end": 349,
+   "channels": 11,
+   "name": "SP-26",
+   "deskName": "stage panel 864.26",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": -6.19,
+   "z": -2.91,
+   "note": ""
+  },
+  {
+   "id": "1:350",
+   "uv": 1,
+   "address": 350,
+   "end": 360,
+   "channels": 11,
+   "name": "SP-27",
+   "deskName": "stage panel 864.27",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": -6.14,
+   "z": 0.72,
+   "note": ""
+  },
+  {
+   "id": "1:361",
+   "uv": 1,
+   "address": 361,
+   "end": 371,
+   "channels": 11,
+   "name": "SP-28",
+   "deskName": "stage panel 864.28",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": -3.33,
+   "z": -0.93,
+   "note": ""
+  },
+  {
+   "id": "1:372",
+   "uv": 1,
+   "address": 372,
+   "end": 382,
+   "channels": 11,
+   "name": "SP-29",
+   "deskName": "stage panel 864.29",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": -3.24,
+   "z": 2.44,
+   "note": ""
+  },
+  {
+   "id": "1:383",
+   "uv": 1,
+   "address": 383,
+   "end": 393,
+   "channels": 11,
+   "name": "SP-30",
+   "deskName": "stage panel 864.30",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": -0.7,
+   "z": -1.07,
+   "note": ""
+  },
+  {
+   "id": "1:394",
+   "uv": 1,
+   "address": 394,
+   "end": 404,
+   "channels": 11,
+   "name": "SP-31",
+   "deskName": "stage panel 864.31",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": -0.73,
+   "z": 2.4,
+   "note": ""
+  },
+  {
+   "id": "1:405",
+   "uv": 1,
+   "address": 405,
+   "end": 415,
+   "channels": 11,
+   "name": "SP-32",
+   "deskName": "stage panel 864.32",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": 1.8,
+   "z": -2.72,
+   "note": ""
+  },
+  {
+   "id": "1:416",
+   "uv": 1,
+   "address": 416,
+   "end": 426,
+   "channels": 11,
+   "name": "SP-33",
+   "deskName": "stage panel 864.33",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": 1.88,
+   "z": 0.84,
+   "note": ""
+  },
+  {
+   "id": "1:427",
+   "uv": 1,
+   "address": 427,
+   "end": 437,
+   "channels": 11,
+   "name": "SP-34",
+   "deskName": "stage panel 864.34",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": 5,
+   "z": -2.16,
+   "note": ""
+  },
+  {
+   "id": "1:438",
+   "uv": 1,
+   "address": 438,
+   "end": 448,
+   "channels": 11,
+   "name": "SP-35",
+   "deskName": "stage panel 864.35",
+   "brand": "",
+   "model": "Stage Panel 864",
+   "group": "Stage Panels",
+   "kind": "panel",
+   "x": 4.95,
+   "z": 1.85,
+   "note": ""
+  },
+  {
+   "id": "1:449",
+   "uv": 1,
+   "address": 449,
+   "end": 476,
+   "channels": 28,
+   "name": "LASER-41",
+   "deskName": "6眼rgb激光灯.41",
+   "brand": "",
+   "model": "6-Eye RGB Laser",
+   "group": "Laser",
+   "kind": "laser",
+   "x": -1.15,
+   "z": 4.05,
+   "note": ""
+  },
+  {
+   "id": "1:477",
+   "uv": 1,
+   "address": 477,
+   "end": 485,
+   "channels": 9,
+   "name": "PAR-40",
+   "deskName": "dj world led beam 8x12w rgbw.40",
+   "brand": "",
+   "model": "DJ World LED Beam 8x12W",
+   "group": "DJ World Beams",
+   "kind": "bar",
+   "x": 1.55,
+   "z": -5.86,
+   "note": ""
+  },
+  {
+   "id": "1:486",
+   "uv": 1,
+   "address": 486,
+   "end": 494,
+   "channels": 9,
+   "name": "PAR-41",
+   "deskName": "dj world led beam 8x12w rgbw.41",
+   "brand": "",
+   "model": "DJ World LED Beam 8x12W",
+   "group": "DJ World Beams",
+   "kind": "bar",
+   "x": 4.61,
+   "z": -5.86,
+   "note": ""
+  },
+  {
+   "id": "1:495",
+   "uv": 1,
+   "address": 495,
+   "end": 503,
+   "channels": 9,
+   "name": "PAR-38",
+   "deskName": "dj world led beam 8x12w rgbw.38",
+   "brand": "",
+   "model": "DJ World LED Beam 8x12W",
+   "group": "DJ World Beams",
+   "kind": "bar",
+   "x": -4.61,
+   "z": -5.86,
+   "note": ""
+  },
+  {
+   "id": "1:504",
+   "uv": 1,
+   "address": 504,
+   "end": 512,
+   "channels": 9,
+   "name": "PAR-35",
+   "deskName": "dj world led beam 8x12w rgbw.35",
+   "brand": "",
+   "model": "DJ World LED Beam 8x12W",
+   "group": "DJ World Beams",
+   "kind": "bar",
+   "x": -1.54,
+   "z": -5.86,
+   "note": ""
+  }
+ ]
+};
+const STORE = "presi-sheet-v2";
+
+const COLORS = {
+  "Moving Heads": "#4da3ff", "RGBW Pars": "#ffb347", "Stage Panels": "#c07dff",
+  "DJ World Beams": "#46e08a", "Aura": "#ff5d8f", "Laser": "#ff4d4d"
+};
+
+let mode = localStorage.getItem(STORE + "-mode") || "colour";
+const ink = (group) => (mode === "bw" ? "#111111" : (COLORS[group] || "#7b8b9b"));
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const saved = (() => { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch { return null; } })();
+
+let rows = saved && Array.isArray(saved.rows) && saved.rows.length ? saved.rows : clone(DATA.rows);
+let texts = (saved && saved.texts) || {};
+const DEFAULT_BUILDING = { width: 19, depth: 14.72, backOff: 0.4, frontOff: 0.4 };
+let building = Object.assign({}, DEFAULT_BUILDING, (saved && saved.building) || {});
+const original = clone(DATA.rows);
+const originalTexts = {};
+
+const money = (n) => String(n);
+const span = (r) => (r.channels ? `${r.address}–${r.address + r.channels - 1}` : String(r.address));
+
+function save() {
+  try { localStorage.setItem(STORE, JSON.stringify({ rows, texts, building })); } catch {}
+}
+
+function validate() {
+  const sorted = [...rows].sort((a, b) => a.address - b.address);
+  const problems = [];
+  let prevEnd = 0;
+  for (const r of sorted) {
+    if (!r.address || !r.channels) { problems.push(`${r.name}: needs an address and a channel count`); continue; }
+    const end = r.address + r.channels - 1;
+    if (r.address <= prevEnd) problems.push(`${r.name} at ${r.address} overlaps the fixture ending ${prevEnd}`);
+    if (end > 512) problems.push(`${r.name} ends at ${end}, past 512`);
+    prevEnd = Math.max(prevEnd, end);
+  }
+  const seen = new Set();
+  for (const r of sorted) {
+    for (let c = r.address; c < r.address + (r.channels || 0); c++) {
+      if (seen.has(c)) problems.push(`channel ${c} is used twice`);
+      seen.add(c);
+    }
+  }
+  return { problems: [...new Set(problems)], total: rows.reduce((s, r) => s + (r.channels || 0), 0), highest: prevEnd };
+}
+
+function renderStatus() {
+  const el = document.getElementById("status");
+  const { problems, total, highest } = validate();
+  el.className = "status " + (problems.length ? "bad" : "good");
+  el.textContent = problems.length
+    ? `${problems.length} problem(s): ` + problems.slice(0, 3).join(" · ") + (problems.length > 3 ? ` · +${problems.length - 3} more` : "")
+    : `Clean patch — ${rows.length} fixtures, ${total} of 512 channels, highest channel ${highest}.`;
+}
+
+function rigBox() {
+  const xs = rows.map(r => r.x), zs = rows.map(r => r.z);
+  return { cx: (Math.min(...xs) + Math.max(...xs)) / 2, cz: (Math.min(...zs) + Math.max(...zs)) / 2 };
+}
+
+function roomBox() {
+  const b = rigBox();
+  return {
+    x0: b.cx - building.width / 2, x1: b.cx + building.width / 2,
+    z0: b.cz - building.depth / 2, z1: b.cz + building.depth / 2
+  };
+}
+
+function renderPlan() {
+  const box = document.getElementById("plan");
+  const room = roomBox();
+  const trussBack = room.z1 + building.backOff;
+  const trussFront = room.z0 - building.frontOff;
+  const x0 = room.x0 - 1.3, x1 = room.x1 + 1.3;
+  const z0 = trussFront - 1.6, z1 = trussBack + 1.6;
+  const W = 1000, H = Math.round(W * (z1 - z0) / Math.max(x1 - x0, 0.001));
+  const sx = x => ((x - x0) / (x1 - x0)) * W;
+  const sy = z => H - ((z - z0) / (z1 - z0)) * H;
+  const lineC = mode === 'bw' ? '#111111' : '#cfcfcf';
+  const dimC = mode === 'bw' ? '#555555' : '#6f7f8f';
+  const p = [];
+  p.push(`<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Plan view of the rig">`);
+  p.push(`<rect width="${W}" height="${H}" fill="${mode === 'bw' ? '#ffffff' : '#0a0f15'}"/>`);
+
+  // room shell and 1 m grid
+  p.push(`<rect x="${sx(room.x0)}" y="${sy(room.z1)}" width="${sx(room.x1) - sx(room.x0)}" height="${sy(room.z0) - sy(room.z1)}" fill="none" stroke="${lineC}" stroke-width="1.4"/>`);
+  for (let gx = Math.ceil(room.x0); gx <= room.x1; gx++) {
+    p.push(`<line x1="${sx(gx)}" y1="${sy(room.z1)}" x2="${sx(gx)}" y2="${sy(room.z0)}" stroke="${mode === 'bw' ? '#e2e2e2' : '#18202a'}"/>`);
+  }
+  for (let gz = Math.ceil(room.z0); gz <= room.z1; gz++) {
+    p.push(`<line x1="${sx(room.x0)}" y1="${sy(gz)}" x2="${sx(room.x1)}" y2="${sy(gz)}" stroke="${mode === 'bw' ? '#e2e2e2' : '#18202a'}"/>`);
+  }
+
+  // trusses
+  p.push(`<line x1="${sx(room.x0)}" y1="${sy(trussBack)}" x2="${sx(room.x1)}" y2="${sy(trussBack)}" stroke="${dimC}" stroke-dasharray="7 5"/>`);
+  p.push(`<text x="${sx(room.x0) + 4}" y="${sy(trussBack) - 5}" font-size="9" fill="${dimC}" letter-spacing="2">TRUSS BACK</text>`);
+  p.push(`<line x1="${sx(room.x0)}" y1="${sy(trussFront)}" x2="${sx(room.x1)}" y2="${sy(trussFront)}" stroke="${dimC}" stroke-dasharray="7 5"/>`);
+  p.push(`<text x="${sx(room.x0) + 4}" y="${sy(trussFront) - 5}" font-size="9" fill="${dimC}" letter-spacing="2">TRUSS FRONT</text>`);
+
+  // stage band
+  const bandTop = sy(room.z0 + 0.9), bandBot = sy(room.z0 + 0.1);
+  p.push(`<rect x="${sx(room.x0 + 0.4)}" y="${bandTop}" width="${sx(room.x1 - 0.4) - sx(room.x0 + 0.4)}" height="${bandBot - bandTop}" fill="none" stroke="${lineC}"/>`);
+  p.push(`<text x="${(sx(room.x0) + sx(room.x1)) / 2}" y="${(bandTop + bandBot) / 2 + 3}" font-size="9" fill="${dimC}" text-anchor="middle" letter-spacing="2">STAGE / DJ BOOTH</text>`);
+
+  // dimensions
+  p.push(`<line x1="${sx(room.x0)}" y1="${sy(trussFront) + 12}" x2="${sx(room.x1)}" y2="${sy(trussFront) + 12}" stroke="${dimC}"/>`);
+  p.push(`<text x="${(sx(room.x0) + sx(room.x1)) / 2}" y="${sy(trussFront) + 22}" font-size="9.5" fill="${dimC}" text-anchor="middle">${building.width.toFixed(2)} m</text>`);
+  p.push(`<line x1="${sx(room.x0) - 12}" y1="${sy(room.z0)}" x2="${sx(room.x0) - 12}" y2="${sy(room.z1)}" stroke="${dimC}"/>`);
+  p.push(`<text x="${sx(room.x0) - 18}" y="${(sy(room.z0) + sy(room.z1)) / 2}" font-size="9.5" fill="${dimC}" text-anchor="middle" transform="rotate(-90 ${sx(room.x0) - 18} ${(sy(room.z0) + sy(room.z1)) / 2})">${building.depth.toFixed(2)} m</text>`);
+
+  for (const r of rows) {
+    const c = ink(r.group);
+    const cx = sx(r.x), cy = sy(r.z);
+    if (r.kind === "head") {
+      p.push(`<circle data-sym="head" cx="${cx}" cy="${cy}" r="6.5" fill="none" stroke="${c}" stroke-width="1.8"/>`);
+      p.push(`<line x1="${cx - 6.5}" y1="${cy}" x2="${cx + 6.5}" y2="${cy}" stroke="${c}" stroke-width="1.2"/>`);
+      p.push(`<line x1="${cx}" y1="${cy - 6.5}" x2="${cx}" y2="${cy + 6.5}" stroke="${c}" stroke-width="1.2"/>`);
+    } else if (r.group === "Aura" || r.group === "Laser") {
+      p.push(`<circle data-sym="aura" cx="${cx}" cy="${cy}" r="6.5" fill="none" stroke="${c}" stroke-width="1.8"/><circle cx="${cx}" cy="${cy}" r="2.6" fill="none" stroke="${c}" stroke-width="1.4"/>`);
+    } else if (r.group === "DJ World Beams") {
+      p.push(`<rect data-sym="beam" x="${cx - 6.5}" y="${cy - 4.5}" width="13" height="9" fill="none" stroke="${c}" stroke-width="1.8"/>`);
+      p.push(`<line x1="${cx - 6.5}" y1="${cy}" x2="${cx + 6.5}" y2="${cy}" stroke="${c}" stroke-width="1.2"/>`);
+    } else if (r.group === "Stage Panels") {
+      p.push(`<rect data-sym="panel" x="${cx - 6.5}" y="${cy - 6.5}" width="13" height="13" fill="none" stroke="${c}" stroke-width="1.8"/>`);
+      p.push(`<line x1="${cx - 6.5}" y1="${cy - 6.5}" x2="${cx + 6.5}" y2="${cy + 6.5}" stroke="${c}" stroke-width="1.2"/>`);
+    } else {
+      p.push(`<rect data-sym="par" x="${cx - 6.5}" y="${cy - 6.5}" width="13" height="13" fill="none" stroke="${c}" stroke-width="1.8"/>`);
+    }
+    p.push(`<text x="${cx + 10}" y="${cy - 1}" font-size="10" fill="${c}">${esc(r.name)}</text>`);
+    p.push(`<text x="${cx + 10}" y="${cy + 9}" font-size="8.5" fill="${mode === 'bw' ? '#555555' : '#7b8b9b'}">${span(r)}</text>`);
+  }
+  p.push(`</svg>`);
+  box.innerHTML = p.join("");
+}
+
+function symbolSVG(group, c, size = 13) {
+  const open = `<svg width="${size}" height="${size}" viewBox="0 0 14 14" aria-hidden="true">`;
+  if (group === "Moving Heads") {
+    return open + `<circle cx="7" cy="7" r="5.2" fill="none" stroke="${c}" stroke-width="1.3"/><line x1="1.8" y1="7" x2="12.2" y2="7" stroke="${c}" stroke-width="1.1"/><line x1="7" y1="1.8" x2="7" y2="12.2" stroke="${c}" stroke-width="1.1"/></svg>`;
+  }
+  if (group === "Aura" || group === "Laser") {
+    return open + `<circle cx="7" cy="7" r="5.2" fill="none" stroke="${c}" stroke-width="1.3"/><circle cx="7" cy="7" r="2" fill="none" stroke="${c}" stroke-width="1.3"/></svg>`;
+  }
+  if (group === "DJ World Beams") {
+    return open + `<rect x="2" y="3.8" width="10" height="6.4" fill="none" stroke="${c}" stroke-width="1.3"/><line x1="2" y1="7" x2="12" y2="7" stroke="${c}" stroke-width="1.1"/></svg>`;
+  }
+  if (group === "Stage Panels") {
+    return open + `<rect x="2.2" y="2.2" width="9.6" height="9.6" fill="none" stroke="${c}" stroke-width="1.3"/><line x1="2.2" y1="2.2" x2="11.8" y2="11.8" stroke="${c}" stroke-width="1.1"/></svg>`;
+  }
+  return open + `<rect x="2.2" y="2.2" width="9.6" height="9.6" fill="none" stroke="${c}" stroke-width="1.3"/></svg>`;
+}
+
+function renderLegend() {
+  const by = new Map();
+  for (const r of rows) {
+    const g = r.group || "Unassigned";
+    if (!by.has(g)) by.set(g, { count: 0, modes: new Set(), lo: r.address, hi: r.channels ? r.address + r.channels - 1 : r.end });
+    const e = by.get(g);
+    e.count++;
+    e.modes.add(`${r.channels}CH`);
+    e.lo = Math.min(e.lo, r.address);
+    e.hi = Math.max(e.hi, r.channels ? r.address + r.channels - 1 : r.end);
+  }
+  const order = ["Moving Heads", "RGBW Pars", "Stage Panels", "DJ World Beams", "Aura", "Laser"];
+  const keys = [...by.keys()].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+  document.getElementById("legend").innerHTML =
+    `<tr><th>Symbol</th><th>Group</th><th>Mode</th><th>Address</th><th style="text-align:right">Qty</th></tr>` +
+    keys.map(k => {
+      const e = by.get(k);
+      const c = ink(k);
+      return `<tr><td>${symbolSVG(k, c)}</td><td class="g">${esc(k)}</td>
+        <td class="n">${[...e.modes].join(" / ")}</td>
+        <td class="n">${e.lo}–${e.hi}</td>
+        <td class="n" style="text-align:right">${e.count}</td></tr>`;
+    }).join("");
+}
+
+function renderPatch() {
+  const sorted = [...rows].sort((a, b) => a.address - b.address);
+  document.getElementById("patch").innerHTML =
+    `<tr><th>ID</th><th>Fixture type</th><th>Brand</th><th>Address</th><th style="text-align:right">Mode</th><th></th></tr>` +
+    sorted.map((r) => {
+      const i = rows.indexOf(r);
+      return `<tr data-i="${i}">
+        <td class="n"><input data-f="name" value="${esc(r.name)}" style="width:66px"></td>
+        <td><input data-f="model" value="${esc(r.model)}"></td>
+        <td><input data-f="brand" value="${esc(r.brand)}" placeholder="" title="Add the brand"></td>
+        <td class="n"><input data-f="address" value="${r.address}" style="width:34px" inputmode="numeric"> – ${r.channels ? r.address + r.channels - 1 : r.end}</td>
+        <td class="n" style="text-align:right"><input data-f="channels" value="${r.channels}" style="width:30px;text-align:right" inputmode="numeric">CH</td>
+        <td><button class="del" title="Remove">×</button></td>
+      </tr>`;
+    }).join("");
+
+  const patch = document.getElementById("patch");
+  patch.oninput = (e) => {
+    const input = e.target.closest("input");
+    if (!input) return;
+    const i = Number(input.closest("tr").dataset.i);
+    const f = input.dataset.f;
+    rows[i][f] = (f === "address" || f === "channels") ? Number(input.value || 0) : input.value;
+    if (f === "address" || f === "channels") {
+      const cell = input.closest("tr").children[3];
+      const r = rows[i];
+      cell.innerHTML = `<input data-f="address" value="${r.address}" style="width:34px" inputmode="numeric"> – ${r.channels ? r.address + r.channels - 1 : r.end}`;
+    }
+    save(); renderStatus(); renderLegend();
+  };
+  patch.onchange = (e) => { if (e.target.closest("input")) renderPlan(); };
+  patch.onclick = (e) => {
+    if (!e.target.classList.contains("del")) return;
+    rows.splice(Number(e.target.closest("tr").dataset.i), 1);
+    save(); renderAll();
+  };
+}
+
+function esc(v) {
+  return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+function renderTexts() {
+  document.querySelectorAll("[data-text]").forEach((el) => {
+    const k = el.dataset.text;
+    if (k === "venue") { originalTexts.venue = el.textContent; }
+    if (texts[k] != null) el.textContent = texts[k];
+    el.onblur = () => { texts[k] = el.textContent.trim(); save(); };
+  });
+}
+
+function syncGeo() {
+  const map = { bW: "width", bD: "depth", bBack: "backOff", bFront: "frontOff" };
+  for (const [id, key] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.value = Number(building[key]).toFixed(2);
+    el.oninput = () => {
+      const v = parseFloat(el.value);
+      if (!isFinite(v) || v <= 0) return;
+      building[key] = v;
+      save();
+      renderPlan();
+      renderLegend();
+    };
+    el.onblur = () => { el.value = Number(building[key]).toFixed(2); };
+  }
+  const d = document.getElementById("tbDate");
+  if (d) d.textContent = new Date().toISOString().slice(0, 10);
+  const m = document.getElementById("tbMode");
+  if (m) m.textContent = mode === "bw" ? "MONO" : "COLOUR";
+}
+
+const LOGO_KEY = STORE + "-logo";
+
+function applyBrandInvert(on) {
+  const img = document.getElementById("brandImg");
+  img.classList.toggle("invert", !!on);
+  try { on ? localStorage.setItem(LOGO_KEY + "-inv", "1") : localStorage.removeItem(LOGO_KEY + "-inv"); } catch {}
+}
+
+function applyLogo(dataUrl) {
+  const img = document.getElementById("brandImg");
+  const text = document.getElementById("brandText");
+  const clear = document.getElementById("brandClear");
+  const invert = document.getElementById("brandInvert");
+  if (!dataUrl) {
+    img.hidden = true; img.removeAttribute("src");
+    text.hidden = false;
+    clear.hidden = true;
+    invert.hidden = true;
+    try { localStorage.removeItem(LOGO_KEY); } catch {}
+    return;
+  }
+  img.src = dataUrl;
+  img.hidden = false;
+  text.hidden = true;
+  clear.hidden = false;
+  invert.hidden = false;
+  try { localStorage.setItem(LOGO_KEY, dataUrl); } catch (e) { alert("That image is too large to keep in this browser. Use a smaller PNG."); }
+}
+
+function readLogoFile(file) {
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { alert("Choose a PNG, SVG or JPEG image."); return; }
+  if (file.size > 1500000) { alert("That file is over 1.5 MB. Export the logo smaller and try again."); return; }
+  const reader = new FileReader();
+  reader.onload = () => applyLogo(String(reader.result));
+  reader.readAsDataURL(file);
+}
+
+window.__logo = applyLogo;
+
+function wireLogo() {
+  const slot = document.getElementById("brandSlot");
+  const input = document.getElementById("brandFile");
+  input.onchange = (e) => { readLogoFile(e.target.files[0]); e.target.value = ""; };
+  ["dragenter", "dragover"].forEach(ev => slot.addEventListener(ev, (e) => { e.preventDefault(); slot.classList.add("dragover"); }));
+  ["dragleave", "drop"].forEach(ev => slot.addEventListener(ev, () => slot.classList.remove("dragover")));
+  slot.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) readLogoFile(f);
+  });
+  document.getElementById("brandClear").onclick = (e) => { e.preventDefault(); e.stopPropagation(); applyLogo(null); };
+  document.getElementById("brandInvert").onclick = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    applyBrandInvert(!document.getElementById("brandImg").classList.contains("invert"));
+  };
+  try {
+    const savedLogo = localStorage.getItem(LOGO_KEY);
+    if (savedLogo) {
+      applyLogo(savedLogo);
+      if (localStorage.getItem(LOGO_KEY + "-inv")) applyBrandInvert(true);
+    }
+  } catch {}
+}
+
+function renderAll() {
+  renderTexts(); renderStatus(); renderPlan(); renderLegend(); renderPatch(); syncGeo(); wireLogo();
+}
+
+function toCsv() {
+  const head = ["universe", "address", "end", "channels", "name", "brand", "model", "group", "notes"];
+  const lines = [head.join(",")];
+  for (const r of [...rows].sort((a, b) => a.address - b.address)) {
+    const cells = [DATA.universe, r.address, r.channels ? r.address + r.channels - 1 : r.end, r.channels, r.name, r.brand, r.model, r.group, r.note || ""];
+    lines.push(cells.map(v => { const s = String(v == null ? "" : v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(","));
+  }
+  return lines.join("\n");
+}
+
+function download(name, text, type) {
+  const blob = new Blob([text], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+document.getElementById("print").onclick = () => window.print();
+document.getElementById("exportCsv").onclick = () => download("presi-patch.csv", toCsv(), "text/csv");
+document.getElementById("exportJson").onclick = () => download("presi-sheet.json", JSON.stringify({ universe: DATA.universe, rows, texts }, null, 1), "application/json");
+document.getElementById("importFile").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    if (Array.isArray(parsed.rows)) {
+      rows = parsed.rows;
+      texts = parsed.texts || {};
+      save(); renderAll();
+    }
+  } catch { alert("That file is not a sheet JSON export."); }
+  e.target.value = "";
+};
+document.getElementById("addRow").onclick = () => {
+  const last = rows.reduce((m, r) => Math.max(m, r.address + (r.channels || 1) - 1), 0);
+  rows.push({ address: last + 1, end: last + 1, channels: 1, name: "NEW", brand: "", model: "", group: "Unassigned", kind: "par", x: 0, z: 0, note: "" });
+  save(); renderAll();
+};
+document.getElementById("reset").onclick = () => {
+  if (!confirm("Discard your edits and go back to the original patch?")) return;
+  rows = clone(original); texts = {}; save(); location.reload();
+};
+
+renderAll();
+
+// ---------------------------------------------------------------- DXF export
+// The sheet is drawn to DXF here, in the browser, so the export always matches
+// what is on screen. Sheet units are millimetres at 1:100 on A3 landscape.
+const SHEET_W = 420, SHEET_H = 297, MARGIN = 10;
+const PLAN_CX = 150, PLAN_CY = 178, PLAN_SCALE = 0.01, PAD = 1500;
+
+const ACI = {
+  "Moving Heads": 5, "RGBW Pars": 2, "Stage Panels": 6,
+  "DJ World Beams": 3, "Aura": 1, "Laser": 1
+};
+const layerFor = (group) => "FIX-" + (group || "OTHER").split(/[^A-Za-z]/)[0].toUpperCase();
+const layerColour = (group) => (mode === "bw" ? 7 : (ACI[group] || 7));
+
+function buildDXF() {
+  const out = [];
+  const pair = (code, value) => out.push(String(code), String(value));
+  const num = (v) => (Math.round(v * 1000) / 1000).toString();
+
+  const line = (x1, y1, x2, y2, layer) => {
+    pair(0, "LINE"); pair(8, layer);
+    pair(10, num(x1)); pair(20, num(y1)); pair(30, 0);
+    pair(11, num(x2)); pair(21, num(y2)); pair(31, 0);
+  };
+  const rect = (x0, y0, x1, y1, layer) => {
+    line(x0, y0, x1, y0, layer); line(x1, y0, x1, y1, layer);
+    line(x1, y1, x0, y1, layer); line(x0, y1, x0, y0, layer);
+  };
+  const circle = (cx, cy, r, layer) => {
+    pair(0, "CIRCLE"); pair(8, layer);
+    pair(10, num(cx)); pair(20, num(cy)); pair(30, 0); pair(40, num(r));
+  };
+  const text = (x, y, h, value, layer, align = "l") => {
+    const str = String(value);
+    const width = str.length * h * 0.52;
+    const dx = align === "c" ? -width / 2 : align === "r" ? -width : 0;
+    pair(0, "TEXT"); pair(8, layer);
+    pair(10, num(x + dx)); pair(20, num(y)); pair(30, 0);
+    pair(40, num(h)); pair(1, str);
+    pair(50, 0); pair(41, 1); pair(51, 0);
+  };
+  const dashed = (x1, y1, x2, y2, layer, dash = 3, gap = 2) => {
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (!len) return;
+    const ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+    for (let d = 0; d < len; d += dash + gap) {
+      const e = Math.min(d + dash, len);
+      line(x1 + ux * d, y1 + uy * d, x1 + ux * e, y1 + uy * e, layer);
+    }
+  };
+
+  const xs = rows.map(r => r.x * 1000), zs = rows.map(r => r.z * 1000);
+  const cxR = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const czR = (Math.min(...zs) + Math.max(...zs)) / 2;
+  const xMin = cxR - building.width * 1000 / 2, xMax = cxR + building.width * 1000 / 2;
+  const zMin = czR - building.depth * 1000 / 2, zMax = czR + building.depth * 1000 / 2;
+  const px = (mm) => PLAN_CX + mm * PLAN_SCALE;
+  const py = (mm) => PLAN_CY + mm * PLAN_SCALE;
+
+  // frame
+  rect(MARGIN, MARGIN, SHEET_W - MARGIN, SHEET_H - MARGIN, "border");
+  rect(MARGIN + 3, MARGIN + 3, SHEET_W - MARGIN - 3, SHEET_H - MARGIN - 3, "border");
+
+  // room, grid, trusses, stage
+  rect(px(xMin), py(zMin), px(xMax), py(zMax), "border");
+  for (let gx = Math.ceil(xMin / 1000) * 1000; gx <= xMax; gx += 1000) {
+    line(px(gx), py(zMin), px(gx), py(zMax), "grid");
+  }
+  for (let gz = Math.ceil(zMin / 1000) * 1000; gz <= zMax; gz += 1000) {
+    line(px(xMin), py(gz), px(xMax), py(gz), "grid");
+  }
+  const backZ = py(zMax + building.backOff * 1000), frontZ = py(zMin - building.frontOff * 1000);
+  dashed(px(xMin), backZ, px(xMax), backZ, "truss");
+  dashed(px(xMin), frontZ, px(xMax), frontZ, "truss");
+  text(px(xMin) + 2, backZ + 1.4, 2.2, "TRUSS BACK", "truss");
+  text(px(xMin) + 2, frontZ + 1.4, 2.2, "TRUSS FRONT", "truss");
+  rect(px(xMin + 500), py(zMin) + 1, px(xMax - 500), py(zMin) + 6, "border");
+  text((px(xMin + 500) + px(xMax - 500)) / 2, py(zMin) + 3.1, 2.0, "STAGE / DJ BOOTH", "text", "c");
+
+  // fixtures
+  const SYM = 1.7;
+  rows.forEach((r, idx) => {
+    const cx = px(r.x * 1000), cy = py(r.z * 1000);
+    const layer = layerFor(r.group);
+    if (r.kind === "head") {
+      circle(cx, cy, SYM, layer);
+      line(cx - SYM, cy, cx + SYM, cy, layer);
+      line(cx, cy - SYM, cx, cy + SYM, layer);
+    } else if (r.group === "Aura" || r.group === "Laser") {
+      circle(cx, cy, SYM, layer);
+      circle(cx, cy, SYM * 0.45, layer);
+    } else if (r.group === "DJ World Beams") {
+      rect(cx - SYM, cy - SYM * 0.7, cx + SYM, cy + SYM * 0.7, layer);
+      line(cx - SYM, cy, cx + SYM, cy, layer);
+    } else if (r.group === "Stage Panels") {
+      rect(cx - SYM, cy - SYM, cx + SYM, cy + SYM, layer);
+      line(cx - SYM, cy - SYM, cx + SYM, cy + SYM, layer);
+    } else {
+      rect(cx - SYM, cy - SYM, cx + SYM, cy + SYM, layer);
+    }
+    const step = idx % 3;
+    const reach = [6.0, 10.5, 14.5][step];
+    const lift = [1.2, 2.6, 4.0][step];
+    const lx = cx + SYM + 1.2, ly = cy + SYM + lift;
+    line(cx + SYM * 0.7, cy + SYM * 0.7, lx, ly, layer);
+    line(lx, ly, lx + reach, ly, layer);
+    text(lx + 0.6, ly + 0.7, 1.9, r.name, layer);
+    text(lx + 0.6, ly - 2.2, 1.5, `${r.address}-${r.channels ? r.address + r.channels - 1 : r.end}`, "text");
+  });
+
+  // dimensions
+  const dimY = py(zMin) - 11;
+  line(px(xMin), dimY, px(xMax), dimY, "dim");
+  line(px(xMin), dimY - 1.5, px(xMin), dimY + 1.5, "dim");
+  line(px(xMax), dimY - 1.5, px(xMax), dimY + 1.5, "dim");
+  text((px(xMin) + px(xMax)) / 2, dimY + 1.2, 2.2, `${((xMax - xMin) / 1000).toFixed(2)} m`, "dim", "c");
+  const dimX = px(xMin) - 7;
+  line(dimX, py(zMin), dimX, py(zMax), "dim");
+  line(dimX - 1.5, py(zMin), dimX + 1.5, py(zMin), "dim");
+  line(dimX - 1.5, py(zMax), dimX + 1.5, py(zMax), "dim");
+  text(dimX - 1.2, (py(zMin) + py(zMax)) / 2, 2.2, `${((zMax - zMin) / 1000).toFixed(2)} m`, "dim", "r");
+
+  // scale bar
+  const sbX = px(xMin), sbY = dimY - 12;
+  for (let i = 0; i < 5; i++) {
+    const x0 = sbX + i * 1000 * PLAN_SCALE;
+    rect(x0, sbY, x0 + 1000 * PLAN_SCALE, sbY + 1.6, "dim");
+    if (i % 2 === 0) {
+      line(x0, sbY, x0 + 1000 * PLAN_SCALE, sbY + 1.6, "dim");
+      line(x0, sbY + 1.6, x0 + 1000 * PLAN_SCALE, sbY, "dim");
+    }
+  }
+  text(sbX, sbY - 2.2, 1.8, "0", "dim");
+  text(sbX + 5 * 1000 * PLAN_SCALE, sbY - 2.2, 1.8, "5 m", "dim", "r");
+  text(sbX, sbY + 4.0, 2.0, "SCALE 1:100", "dim");
+
+  // patch table
+  const TX = 268, TY = 60, TW = SHEET_W - MARGIN - 3 - TX, ROW = 3.85;
+  const order = [...rows].sort((a, b) => a.address - b.address);
+  const top = TY + ROW * (order.length + 1);
+  text(TX, top + 6.2, 3.0, "DMX PATCH - BY ADDRESS", "text");
+  text(TX, top + 3.0, 1.8, "UNIVERSE 1 - 512 CHANNELS", "text");
+  const cols = [0, 26, 100, 130, TW];
+  rect(TX, top - ROW, TX + TW, top, "patch");
+  ["ID", "FIXTURE TYPE", "ADDRESS", "MODE"].forEach((h, i) => {
+    text(TX + cols[i] + 1.2, top - ROW + 1.2, 1.8, h, "patch");
+    if (i) line(TX + cols[i], top - ROW, TX + cols[i], TY, "patch");
+  });
+  order.forEach((r, i) => {
+    const y = top - ROW * (i + 2);
+    line(TX, y, TX + TW, y, "patch");
+    text(TX + cols[0] + 1.2, y + 1.2, 1.7, r.name, "patch");
+    text(TX + cols[1] + 1.2, y + 1.2, 1.7, (r.model || "").slice(0, 38), "patch");
+    text(TX + cols[2] + 1.2, y + 1.2, 1.7, `${r.address} - ${r.channels ? r.address + r.channels - 1 : r.end}`, "patch");
+    text(TX + cols[3] + 1.2, y + 1.2, 1.7, `${r.channels}CH`, "patch");
+  });
+  line(TX, TY, TX + TW, TY, "patch");
+
+  // legend
+  const LX = MARGIN + 8, LY = 30;
+  text(LX, LY + 16, 2.6, "FIXTURE LEGEND", "text");
+  const groups = [...new Set(rows.map(r => r.group || "Unassigned"))];
+  groups.forEach((g, i) => {
+    const y = LY + 10 - i * 5.0;
+    const layer = layerFor(g);
+    const members = rows.filter(r => (r.group || "Unassigned") === g);
+    const qty = members.length;
+    const lo = Math.min(...members.map(r => r.address));
+    const hi = Math.max(...members.map(r => r.channels ? r.address + r.channels - 1 : r.end));
+    if (g === "Aura" || g === "Laser") {
+      circle(LX + 1.7, y + 1.2, 1.7, layer);
+      circle(LX + 1.7, y + 1.2, 0.8, layer);
+    } else if (g === "Moving Heads") {
+      circle(LX + 1.7, y + 1.2, 1.7, layer);
+      line(LX, y + 1.2, LX + 3.4, y + 1.2, layer);
+      line(LX + 1.7, y - 0.5, LX + 1.7, y + 2.9, layer);
+    } else if (g === "DJ World Beams") {
+      rect(LX, y + 0.4, LX + 3.4, y + 2.0, layer);
+      line(LX, y + 1.2, LX + 3.4, y + 1.2, layer);
+    } else if (g === "Stage Panels") {
+      rect(LX, y - 0.5, LX + 3.4, y + 2.9, layer);
+      line(LX, y - 0.5, LX + 3.4, y + 2.9, layer);
+    } else {
+      rect(LX, y - 0.5, LX + 3.4, y + 2.9, layer);
+    }
+    text(LX + 6, y + 0.6, 2.2, g, "text");
+    text(LX + 62, y + 0.6, 1.8, `${lo}-${hi}`, "text");
+    text(LX + 88, y + 0.6, 1.8, `QTY ${qty}`, "text", "r");
+  });
+
+  // title block
+  const TB_X = 268, TB_Y = MARGIN + 3, TB_W = SHEET_W - MARGIN - 3 - TB_X, TB_H = 44;
+  rect(TB_X, TB_Y, TB_X + TB_W, TB_Y + TB_H, "border");
+  line(TB_X, TB_Y + TB_H - 14, TB_X + TB_W, TB_Y + TB_H - 14, "border");
+  line(TB_X, TB_Y + TB_H - 26, TB_X + TB_W, TB_Y + TB_H - 26, "border");
+  line(TB_X + TB_W * 0.55, TB_Y + TB_H - 26, TB_X + TB_W * 0.55, TB_Y, "border");
+  text(TB_X + 3, TB_Y + TB_H - 5, 4.2, (texts.venue || "PRESI").toUpperCase(), "text");
+  text(TB_X + 3, TB_Y + TB_H - 10.5, 2.6, "LIGHTING PLOT & DMX PATCH", "text");
+  text(TB_X + 3, TB_Y + TB_H - 20, 1.7, "DRAWING", "text");
+  text(TB_X + 3, TB_Y + TB_H - 24, 2.4, "PLAN - PRESI-PLOT-01", "text");
+  text(TB_X + 3, TB_Y + 16, 1.7, "SCALE", "text");
+  text(TB_X + 3, TB_Y + 12, 2.2, "1:100 @ A3", "text");
+  text(TB_X + 3, TB_Y + 7, 1.7, "DATE", "text");
+  text(TB_X + 3, TB_Y + 3, 2.2, new Date().toISOString().slice(0, 10), "text");
+  text(TB_X + TB_W * 0.55 + 3, TB_Y + 16, 1.7, "SHEET", "text");
+  text(TB_X + TB_W * 0.55 + 3, TB_Y + 12, 2.2, "1 OF 1", "text");
+  text(TB_X + TB_W * 0.55 + 3, TB_Y + 7, 1.7, "MODE", "text");
+  text(TB_X + TB_W * 0.55 + 3, TB_Y + 3, 2.2, mode === "bw" ? "MONO" : "COLOUR", "text");
+
+  // notes
+  text(268, top + 25, 2.4, "NOTES", "text");
+  [
+    "Positions recovered from the show file POSX/POSY, not re-surveyed.",
+    "Addresses and channel counts as programmed on the desk.",
+    "Channel order inside each fixture profile was not recovered."
+  ].forEach((n, i) => text(268, top + 20 - i * 3.4, 1.9, `${i + 1}. ${n}`, "text"));
+
+  // ---- assemble
+  const head = [];
+  head.push(0, "SECTION", 2, "HEADER", 9, "$ACADVER", 1, "AC1009", 9, "$INSUNITS", 70, 4, 0, "ENDSEC");
+
+  const layerNames = ["border", "truss", "grid", "text", "dim", "patch",
+    ...new Set(rows.map(r => layerFor(r.group)))];
+  const colourOf = (name) => {
+    if (mode === "bw") return 7;
+    if (name === "truss") return 8;
+    if (name === "grid") return 253;
+    if (name === "dim") return 4;
+    const group = rows.find(r => layerFor(r.group) === name);
+    return group ? (ACI[group.group] || 7) : 7;
+  };
+  const tables = [0, "SECTION", 2, "TABLES",
+    0, "TABLE", 2, "LAYER", 70, layerNames.length];
+  for (const name of layerNames) {
+    tables.push(0, "LAYER", 2, name, 70, 0, 62, colourOf(name), 6, "CONTINUOUS");
+  }
+  tables.push(0, "ENDTAB", 0, "ENDSEC");
+
+  const body = [0, "SECTION", 2, "ENTITIES", ...out, 0, "ENDSEC", 0, "EOF"];
+  return [...head, ...tables, ...body].join("\n") + "\n";
+}
+
+document.getElementById("exportDxf").onclick = () => {
+  download("presi-plot.dxf", buildDXF(), "application/dxf");
+};
+
+function applyMode() {
+  document.body.classList.toggle("bw", mode === "bw");
+  document.getElementById("mode").textContent = "[⌘B] Preview: " + (mode === "bw" ? "b / w" : "colour");
+  save();
+  renderPlan();
+  renderLegend();
+  syncGeo();
+}
+
+// the printed sheet is always the CAD plot: line art, black on white
+let modeBeforePrint = null;
+window.addEventListener("beforeprint", () => {
+  modeBeforePrint = mode;
+  mode = "bw";
+  renderPlan();
+  renderLegend();
+  syncGeo();
+});
+window.addEventListener("afterprint", () => {
+  if (modeBeforePrint) mode = modeBeforePrint;
+  modeBeforePrint = null;
+  renderPlan();
+  renderLegend();
+  syncGeo();
+});
+
+document.getElementById("mode").onclick = () => {
+  mode = mode === "bw" ? "colour" : "bw";
+  localStorage.setItem(STORE + "-mode", mode);
+  applyMode();
+};
+
+window.__buildDXF = buildDXF;
+window.__setMode = (m) => { mode = m; applyMode(); };
+
+applyMode();
+</script>
+</body>
+</html>

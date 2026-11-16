@@ -1,0 +1,67 @@
+PASS  patch.csv holds 41 fixtures                        41
+PASS  sheet holds 41 fixtures                            41
+PASS  fixture names match the source                     only csv: [], only sheet: []
+PASS  address and channel count match the source         
+PASS  no address overlaps                                []
+PASS  channels 1–512 all allocated                       missing []
+PASS  channel total is 512                               512
+PASS  DXF audit clean                                    0 errors
+PASS  every fixture has an ID label                      []
+PASS  every fixture has its address range on the plan    []
+PASS  labels stay inside the plan area                   []
+PASS  Moving Heads: 16 fixtures in data                  16
+PASS  Moving Heads: 16 symbols drawn as circle+cross     16 circles on FIX-MOVING
+PASS  RGBW Pars: 8 fixtures in data                      8
+PASS  RGBW Pars: 8 symbols drawn as square               48 lines on FIX-RGBW, want 48
+PASS  Stage Panels: 10 fixtures in data                  10
+PASS  Stage Panels: 10 symbols drawn as square+diagonal  70 lines on FIX-STAGE, want 70
+PASS  DJ World Beams: 4 fixtures in data                 4
+PASS  DJ World Beams: 4 symbols drawn as rectangle       28 lines on FIX-DJ, want 24
+PASS  Aura: 2 fixtures in data                           2
+PASS  Aura: 2 symbols drawn as double circle             4 circles on FIX-AURA
+PASS  Laser: 1 fixtures in data                          1
+PASS  Laser: 1 symbols drawn as double circle            2 circles on FIX-LASER
+PASS  legend lists Moving Heads                          
+PASS  legend address range for Moving Heads              1-288
+PASS  legend quantity for Moving Heads                   16
+PASS  legend lists RGBW Pars                             
+PASS  legend address range for RGBW Pars                 225-256
+PASS  legend quantity for RGBW Pars                      8
+PASS  legend lists Stage Panels                          
+PASS  legend address range for Stage Panels              339-448
+PASS  legend quantity for Stage Panels                   10
+PASS  legend lists DJ World Beams                        
+PASS  legend address range for DJ World Beams            477-512
+PASS  legend quantity for DJ World Beams                 4
+PASS  legend lists Aura                                  
+PASS  legend address range for Aura                      289-338
+PASS  legend quantity for Aura                           2
+PASS  legend lists Laser                                 
+PASS  legend address range for Laser                     449-476
+PASS  legend quantity for Laser                          1
+PASS  patch table lists 41 address rows                  41
+PASS  patch table addresses match the plan               mismatch
+PASS  patch table carries a mode for every row           41
+PASS  width dimension drawn                              19.00 m
+PASS  depth dimension drawn                              14.72 m
+PASS  title block shows PRESI-PLOT-01                    
+PASS  title block shows 1:100 @ A3                       
+PASS  title block shows 1 OF 1                           
+PASS  title block shows 2026-11-16                       
+PASS  title block shows PLAN                             
+PASS  no text outside the A3 frame                       []
+PASS  no overlapping patch-table cells                   []
+PASS  no overlapping fixture labels on the plan          0 pairs: []
+PASS  every symbol sits at its recovered position        []
+PASS  Aura AURA-25 drawn as a double circle              2 circles at its centre
+PASS  Aura AURA-26 drawn as a double circle              2 circles at its centre
+PASS  Laser LASER-41 drawn as a double circle            2 circles at its centre
+PASS  patch table rows are complete on one line each     41
+PASS  room width matches the building value              [139.0, 180.0, 190.0, 394.0, 400.0]
+PASS  room depth matches the building value              [5.0, 18.0, 44.0, 147.2, 271.0, 277.0]
+PASS  scale bar has five 10 mm blocks (5 m at 1:100)     10 blocks
+PASS  every stage panel carries its diagonal             []
+PASS  pars stay plain squares                            []
+PASS  beams are drawn flatter than pars (3.4 x 2.38 mm)  []
+
+65 checks, 0 failures
