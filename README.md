@@ -164,3 +164,15 @@ Run it after any edit:
 
 It exits non-zero on a failure and prints the check that failed. `VERIFICATION.txt`
 holds the last run.
+
+## Cross-check against the show file
+
+`crosscheck.py` compares the sheet with the original extraction, `source_show.json`
+from the myDMX show. It checks fixture names, addresses, universes and the desk's
+own model grouping, then uses the fixed start addresses to prove the channel widths
+tile 1–512 with no gap or overlap.
+
+    python3 crosscheck.py
+
+The show file stores one opaque 24-byte mode blob per model, so the width of each
+profile cannot be read out of it; the tiling test is what pins the widths down.
